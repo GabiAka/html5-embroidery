@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html manifest="manifest.appcache">
   <head>
-    <meta charset="utf-8">
-    <title>Drag &amp; Drop File Selection</title> 
+    <meta charset="utf-8" />
+    <title>Drag &amp; Drop File Selection</title>
     <style type="text/css">
       #fileDropBox {
         width: 20em;
@@ -15,11 +15,14 @@
     </style>
   </head>
   <body>
-    <h3>Select a .DST, .EXP, .EXY, .JEF, .PCS, .PEC, .PES, .SEW, .VP3, .XXX or .Z00 file or drag and drop one to the drop box below:</h3>
-        <input type="file" id="files" name="files[]" multiple />
+    <h3>
+      Select a .DST, .EXP, .EXY, .JEF, .PCS, .PEC, .PES, .SEW, .VP3, .XXX or
+      .Z00 file or drag and drop one to the drop box below:
+    </h3>
+    <input type="file" id="files" name="files[]" multiple />
     <div id="fileDropBox">Drop files here.</div>
     <canvas id="mycanvas"></canvas>
-	<a href="#" id="btn-download">Download</a>
+    <a href="#" id="btn-download">Download</a>
     <script src="jdataview.js"></script>
     <script src="pattern.js"></script>
     <script src="dstformat.js"></script>
