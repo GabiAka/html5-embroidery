@@ -198,13 +198,90 @@ function combineDstKeepColor(dst1, dst2) {
 
   return new Uint8Array(out);
 }
+/* =========================
+ * Lấy vị trí stick hiện tại
+ * ========================= */
+function getCurrentPosition(dst) {
+  let x = 0,
+    y = 0;
+  let i = DST_HEADER_SIZE;
+
+  while (!(dst[i] === 0x00 && dst[i + 1] === 0x00 && dst[i + 2] === 0xf3)) {
+    const b0 = dst[i];
+    const b1 = dst[i + 1];
+    const b2 = dst[i + 2];
+
+    // X
+    if (b0 & 0x01) x += 1;
+    if (b0 & 0x02) x -= 1;
+    if (b0 & 0x04) x += 9;
+    if (b0 & 0x08) x -= 9;
+    if (b1 & 0x01) x += 3;
+    if (b1 & 0x02) x -= 3;
+    if (b1 & 0x04) x += 27;
+    if (b1 & 0x08) x -= 27;
+    if (b2 & 0x04) x += 81;
+    if (b2 & 0x08) x -= 81;
+
+    // Y
+    if (b0 & 0x80) y += 1;
+    if (b0 & 0x40) y -= 1;
+    if (b0 & 0x20) y += 9;
+    if (b0 & 0x10) y -= 9;
+    if (b1 & 0x80) y += 3;
+    if (b1 & 0x40) y -= 3;
+    if (b1 & 0x20) y += 27;
+    if (b1 & 0x10) y -= 27;
+    if (b2 & 0x20) y += 81;
+    if (b2 & 0x10) y -= 81;
+
+    i += 3;
+    console.log(`Current Position: (${x}, ${y})`);
+  }
+  return { x, y };
+}
+
+/* =========================
+ * COMBINE DST WITH ABSOLUTE POSITIONING
+ * ========================= */
+function combineDstAbsolute(dst1, dst2, targetX = 500, targetY = 0) {
+  const out = [];
+
+  // header
+  out.push(...dst1.slice(0, DST_HEADER_SIZE));
+
+  // vẽ hình 1
+  copyStitchesWithoutEnd(dst1, out);
+
+  // vị trí hiện tại sau hình 1
+  const { x: curX, y: curY } = getCurrentPosition(dst1);
+
+  console.log(`Current Position after DST1: (${curX}, ${curY})`);
+
+  // 🔥 jump về (0,0)
+  splitJump(-curX, -curY).forEach((j) => out.push(...j));
+
+  // 🔥 jump tới absolute (500,0)
+  splitJump(targetX, targetY).forEach((j) => out.push(...j));
+
+  // đổi màu (nếu cần giữ màu riêng)
+  out.push(0x00, 0x00, 0xc3);
+
+  // vẽ hình 2
+  copyStitchesWithoutEnd(dst2, out);
+
+  // END
+  out.push(...DST_END);
+
+  return new Uint8Array(out);
+}
 
 /* =========================
  * MAIN
  * ========================= */
 const assetsDir = path.resolve("./assets");
 
-const file1 = fs.readFileSync(path.join(assetsDir, "CircleNoFill.dst"));
+const file1 = fs.readFileSync(path.join(assetsDir, "SquareNoFill.dst"));
 const file2 = fs.readFileSync(path.join(assetsDir, "SquareNoFill.dst"));
 
 const dst1 = new Uint8Array(file1);
@@ -212,7 +289,7 @@ const dst2 = new Uint8Array(file2);
 
 // offset cho file thứ 2 (đổi theo nhu cầu)
 // const merged = combineDst(dst1, dst2, 0, 0);
-const merged = combineDstKeepColor(dst1, dst2);
+const merged = combineDstAbsolute(dst1, dst2, 100, 0);
 
 // save
 fs.writeFileSync(path.join(assetsDir, "merged.dst"), Buffer.from(merged));
