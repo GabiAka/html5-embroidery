@@ -67,6 +67,51 @@ function encodeDstDelta(dx, dy) {
 }
 
 /* =========================
+ * CALC END POSITION
+ * ========================= */
+function getEndPosition(dst) {
+  let x = 0;
+  let y = 0;
+
+  let i = DST_HEADER_SIZE;
+  while (!(dst[i] === 0x00 && dst[i + 1] === 0x00 && dst[i + 2] === 0xf3)) {
+    const b0 = dst[i];
+    const b1 = dst[i + 1];
+    const b2 = dst[i + 2];
+
+    let dx = 0;
+    let dy = 0;
+
+    const dec = (b, pos, neg, val) => {
+      if (b & pos) return val;
+      if (b & neg) return -val;
+      return 0;
+    };
+
+    // X
+    dx += dec(b2, 0x04, 0x08, 81);
+    dx += dec(b1, 0x04, 0x08, 27);
+    dx += dec(b0, 0x04, 0x08, 9);
+    dx += dec(b1, 0x01, 0x02, 3);
+    dx += dec(b0, 0x01, 0x02, 1);
+
+    // Y
+    dy += dec(b2, 0x20, 0x10, 81);
+    dy += dec(b1, 0x20, 0x10, 27);
+    dy += dec(b0, 0x20, 0x10, 9);
+    dy += dec(b1, 0x80, 0x40, 3);
+    dy += dec(b0, 0x80, 0x40, 1);
+
+    x += dx;
+    y += dy;
+
+    i += 3;
+  }
+
+  return { x, y };
+}
+
+/* =========================
  * SPLIT LARGE JUMP
  * ========================= */
 function splitJump(dx, dy) {
@@ -120,6 +165,41 @@ function combineDst(dst1, dst2, offsetX = 0, offsetY = 0) {
 }
 
 /* =========================
+ * COMBINE DST KEEP COLOR
+ * ========================= */
+const DST_COLOR_CHANGE = [0x00, 0x00, 0xc3];
+
+function combineDstKeepColor(dst1, dst2) {
+  const out = [];
+
+  // header lấy từ file 1
+  out.push(...dst1.slice(0, DST_HEADER_SIZE));
+
+  // --- FILE 1 ---
+  copyStitchesWithoutEnd(dst1, out);
+
+  // 🔥 tính vị trí kết thúc file 1
+  const { x, y } = getEndPosition(dst1);
+
+  // 🔥 jump về (0,0)
+  if (x !== 0 || y !== 0) {
+    const jumps = splitJump(-x, -y);
+    jumps.forEach((j) => out.push(...j));
+  }
+
+  // 🔥 đổi màu trước khi vẽ file 2
+  out.push(...DST_COLOR_CHANGE);
+
+  // --- FILE 2 ---
+  copyStitchesWithoutEnd(dst2, out);
+
+  // END
+  out.push(...DST_END);
+
+  return new Uint8Array(out);
+}
+
+/* =========================
  * MAIN
  * ========================= */
 const assetsDir = path.resolve("./assets");
@@ -131,7 +211,8 @@ const dst1 = new Uint8Array(file1);
 const dst2 = new Uint8Array(file2);
 
 // offset cho file thứ 2 (đổi theo nhu cầu)
-const merged = combineDst(dst1, dst2, 0, 0);
+// const merged = combineDst(dst1, dst2, 0, 0);
+const merged = combineDstKeepColor(dst1, dst2);
 
 // save
 fs.writeFileSync(path.join(assetsDir, "merged.dst"), Buffer.from(merged));
